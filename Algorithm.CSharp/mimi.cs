@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using QuantConnect.Brokerages;
 using QuantConnect.Data;
 using QuantConnect.Indicators;
@@ -26,7 +27,7 @@ namespace QuantConnect.Algorithm.CSharp
             SetAccountCurrency("USD");
 
             // Ajouter le symbole crypto
-            _btcEur = AddCrypto("BTCUSD").Symbol;
+            _btcEur = AddCrypto("BTCUSD", Resolution.Daily).Symbol;
 
             // Ajouter les niveaux de retracement de Fibonacci
             _fibonacciLevels = new List<decimal> { 0, 23.6m, 38.2m, 50, 61.8m, 100 };
@@ -38,12 +39,12 @@ namespace QuantConnect.Algorithm.CSharp
             SetCash(100000);
         }
 
-        public override void OnData(Slice data)
+        public override void OnData(Slice slice)
         {
             // Vérifier si les données pour le symbole sont disponibles
-            if (data.ContainsKey(_btcEur))
+            if (slice.ContainsKey(_btcEur))
             {
-                var currentPrice = data[_btcEur].Close;
+                var currentPrice = slice[_btcEur].Close;
 
                 // Calculer les retracements de Fibonacci
                 var fibonacciRetracements = new List<decimal>();
@@ -53,7 +54,7 @@ namespace QuantConnect.Algorithm.CSharp
                 }
 
                 // Mettre à jour la valeur de l'indicateur RSI
-                _rsi.Update(data[_btcEur]);
+                _rsi.Update(new IndicatorDataPoint(slice[_btcEur].EndTime, currentPrice));
 
                 // Conditions d'achat
                 if (!Portfolio.Invested)
@@ -62,17 +63,14 @@ namespace QuantConnect.Algorithm.CSharp
                     if (_rsi < 30)  // Exemple : acheter si RSI est inférieur à 30
                     {
                         // Ajouter ici la condition basée sur la stop-loss pour l'achat
-                        var stopLossPercentage = 5;
+                        var stopLossPercentage = 0.50;
                         var stopLossPrice = currentPrice * (1 - stopLossPercentage / 100);
 
                         // Acheter si la stop-loss condition est vérifiée
                         if (currentPrice < stopLossPrice)
                         {
-                            // Calculer la quantité à acheter (50% du capital)
-                            var quantityToBuy = Portfolio.Cash * 0.5m / currentPrice;
-
                             // Définir l'ordre d'achat avec un stop-loss
-                            SetHoldings(_btcEur, quantityToBuy, stopLossPrice);
+                            SetHoldings(_btcEur, 1);  // Acheter la totalité du capital
                             Debug($"Achat de {_btcEur.Value} au prix de {currentPrice} avec un retracement de {stopLossPrice} (stop-loss)");
                         }
                     }
@@ -80,14 +78,23 @@ namespace QuantConnect.Algorithm.CSharp
                 // Conditions de vente
                 else
                 {
-                    // Ajouter ici la condition basée sur l'indicateur RSI pour la vente
-                    if (_rsi > 70)  // Exemple : vendre si RSI est supérieur à 70
+                    if (_rsi.Current.Value > 70)  // Exemple : vendre si RSI est supérieur à 70
                     {
-                        Liquidate(_btcEur);
-                        Debug($"Vente de {_btcEur.Value} au prix de {currentPrice} en raison du RSI élevé");
+                        // Utiliser les retracements de Fibonacci pour définir la quantité à vendre
+                        var quantityToSell = Math.Min(Portfolio[_btcEur].Quantity, fibonacciRetracements[4]); // Utiliser le niveau 61.8%
+
+                        // Vendre la quantité définie
+                        decimal quantityToSell1 = quantityToSell;
+                        Liquidate(_btcEur, quantityToSell1);
+                        Debug($"Vente de {_btcEur.Value} au prix de {currentPrice} en raison du RSI élevé. Quantité à vendre : {quantityToSell.ToString(CultureInfo.InvariantCulture)}");
                     }
                 }
             }
+        }
+
+        private void Liquidate(Symbol btcEur, decimal quantityToSell1)
+        {
+            throw new NotImplementedException();
         }
 
         // Statistiques attendues pour les tests de régression

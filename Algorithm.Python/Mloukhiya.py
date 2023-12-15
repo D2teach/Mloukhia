@@ -22,7 +22,7 @@ class Mloukhiya(QCAlgorithm):
         self.SetCash("ETH", 5)
 
         # Set brokerage model for GDAX
-        self.SetBrokerageModel(BrokerageName.GDAX, AccountType.Cash)
+        self.SetBrokerageModel(BrokerageName.Bitstamp, AccountType.Cash)
 
         # Find more symbols here: http://quantconnect.com/data
         self.AddCrypto("BTCUSD", Resolution.Minute)
